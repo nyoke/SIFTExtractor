@@ -20,13 +20,13 @@ using namespace cv;
 int main(int argc, char *argv[])
 {
 	/* 引数のチェック */
-	if (argc != 4)
+	if (argc != 5)
 	{
-		cerr << "usage: SFITExtractor [image file] [feature file] [sampling: 0=DoG(Default), 1=DenceSampling]" << endl;
+		cerr << "usage: SFITExtractor [image file] [feature file] [sampling: 0=DoG(Default), 1=DenceSampling] [scaling: 0=false(Default), 1=true]" << endl;
 		return -1;
 	}
 
-	SIFTExtractor sift(argv[1]);
+	SIFTExtractor sift(argv[1], true);
 	sift.extract(SIFTExtractor::dense);
 	sift.save_feature(argv[2]);
 	sift.save_image("result");

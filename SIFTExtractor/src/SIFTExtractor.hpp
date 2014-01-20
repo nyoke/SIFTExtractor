@@ -26,91 +26,153 @@ public:
 	{
 		dog, dense
 	}; // サンプリング法 (dog = default, dense = dense sampling)
-	SIFTExtractor(string);
-	void extract(enum sampling, int feature_num = 100);
+	SIFTExtractor(string, bool resize, int feature_num = 100);
+	void extract(enum sampling);
 	void save_feature(string); 		// 特徴量の保存
 	void save_image(string);	 	// 特徴量の抽出結果を保存
 
 private:
 	string image_file_name;   				// 入力画像のパス
-	bool extraction;   				// 特徴量の抽出は完了したか？
+	bool extraction;   						// 特徴量の抽出は完了したか？
+	bool resize;							// 正方形にリサイズするか？
+	int feature_num;						// 抽出する特徴量の数
 	cv::Mat ref_image;						// 抽出対象原画像
 	cv::Mat proc_image;						// 抽出対象画像
 	std::vector<cv::KeyPoint> keypoints; 	// キーポイント
 	cv::Mat descriptors;		 			// 抽出結果
 	cv::SiftDescriptorExtractor extractor;  // 抽出機
 
-	void extract_using_dog(int);    // DoGカーネルで特徴抽出
-	void extract_using_dense(int);  // Dense Samplingカーネルで特徴抽出
+	void extract_using_dog();    // DoGカーネルで特徴抽出
+	void extract_using_dense();  // Dense Samplingカーネルで特徴抽出
+	void resize_image(cv::Mat &);			// imageを正方形にリサイズする
 };
 
 /* Definition ******************************************************************/
-SIFTExtractor::SIFTExtractor(string name)
+SIFTExtractor::SIFTExtractor(string name, bool resize, int feature_num)
 {
-	this->image_file_name = name; // 抽出対象のファイル名
-	initModule_nonfree(); // non-freeライブラリを使う場合は必ず呼ぶ
-	extraction = false;	  // 特徴量はまだ抽出されていない
+	image_file_name = name;	 // 抽出対象のファイル名
+	initModule_nonfree();	 // non-freeライブラリを使う場合は必ず呼ぶ
+	extraction = false;	  	 // 特徴量の抽出完了フラグを未抽出(false)に初期化
+	this->resize = resize; 	 // リサイズの有無
+	this->feature_num = feature_num; // 特徴量の抽出数
 
 	// (1) load Reference Image
 	ref_image = imread(image_file_name);
 	if (ref_image.empty())
-		cerr << "cannot open ref_image file: " << image_file_name << endl; return;
+	{
+		cerr << "cannot open ref_image file: " << image_file_name << endl;
+		return;
+	}
 
 	// (2) convert Reference Image to Gray-scale for Feature Extraction
-	cv::cvtColor(ref_image, proc_image, CV_BGR2GRAY);
+	proc_image = Mat::zeros(ref_image.cols, ref_image.rows, CV_8UC1);
+	cvtColor(ref_image, proc_image, CV_BGR2GRAY);
+
+	// リサイズオプションがある場合は正方形にリサイズする
+	if(resize == true)
+		resize_image(proc_image);
 }
 
 
 /* 特徴量の抽出（指定したカーネルに対応したメソッド呼び出し） */
-void SIFTExtractor::extract(sampling kernel, int feature_num)
+void SIFTExtractor::extract(sampling kernel)
 {
 	switch (kernel)
 	{
 		case SIFTExtractor::dog:
-			extract_using_dog(feature_num);
+			extract_using_dog();
 			break;
 		case SIFTExtractor::dense:
-			extract_using_dense(feature_num);
+			extract_using_dense();
 			break;
 	}
 }
 
 /* DoGカーネルによる特徴量の抽出 */
-void SIFTExtractor::extract_using_dog(int feature_num)
+void SIFTExtractor::extract_using_dog()
 {
 
 }
 
 /* DoGカーネルによる特徴量の抽出 */
-void SIFTExtractor::extract_using_dense(int feature_num)
+void SIFTExtractor::extract_using_dense()
 {
 	/*+ パラメータの算出 ++++++++++++++++*/
-	Size image_size = Size(ref_image.cols, ref_image.rows); // 画像サイズの取得
+	Size image_size = Size(proc_image.cols, proc_image.rows); // 画像サイズの取得
 
 	// 1. サンプリング間隔を求める
-	double interval = sqrt((image_size.width * image_size.height) / feature_num);
+	double interval = sqrt((image_size.width * image_size.height) / (double)feature_num);
 
 	// 2. スケールの決定（サンプリング間隔 interval / 2.0)
 	double scale = interval / 2.0;
 
-	// 3. 抽出できるサンプル数の算出
-	int sample_col_num = image_size.width / ceil(interval);
-	int sample_row_num = image_size.height / ceil(interval);
+	// 3. interval間隔で横・縦ともに抽出できるサンプル数の算出
+	int sample_col_num = (double)image_size.width  / floor(interval);
+	int sample_row_num = (double)image_size.height / floor(interval);
 
 	// 4. 画像の余白を算出
-	int odd_cols = image_size.width - (sample_col_num * ceil(interval));
-	int odd_rows = image_size.width - (sample_row_num * ceil(interval));
+	int odd_cols, odd_rows;
+
+	if( (image_size.width % sample_col_num == 0) && (image_size.height % sample_row_num == 0) )
+	{
+		odd_cols = image_size.width -  ( (image_size.width - 1)  * floor(interval) );
+		odd_rows = image_size.height - ( (image_size.height - 1) * floor(interval) );
+	}
+	else if( (image_size.width % sample_col_num == 0) && (image_size.height % sample_row_num != 0) )
+	{
+		odd_cols = image_size.width -  ( (image_size.width - 1) * floor(interval) );
+		odd_rows = image_size.height - ( image_size.height * floor(interval) );
+	}
+	else if( (image_size.width % sample_col_num == 0) && (image_size.height % sample_row_num == 0) )
+	{
+		odd_cols = image_size.width -  ( image_size.width * floor(interval) );
+		odd_rows = image_size.height - ( (image_size.height - 1) * floor(interval) );
+	}
+	else
+	{
+		odd_cols = image_size.width -  ( image_size.width  * floor(interval) );
+		odd_rows = image_size.height - ( image_size.height * floor(interval) );
+	}
 
 	// 5. 左上から何pixelシフトした位置から特徴量を抽出するかを算出
-	double sift = sqrt((odd_cols * odd_rows) / 4);
+	double sift = sqrt((odd_cols * odd_rows) / 4.0);
+
+	// 6. 正方形の画像の場合の例外処理
+	if( image_size.width == image_size.height)
+	{
+		int tmp = (double)image_size.width - (floor(sift) * 2.0) - (floor(interval) * (sqrt(feature_num) - 1.0));
+		if(tmp == 0)
+			sift--;
+		else
+			sift += tmp/2;
+	}
 
 	/*+ パラメータの算出 ++++++++++++++++*/
-	// 1. 半径 scale[pixel]の大きさの特徴点を interval[pixel]間隔でサンプリングする
-	cv::DenseFeatureDetector detector(ceil(scale), 1, 0.1f, ceil(interval), int(sift + 0.5), true, false);
-	detector.detect(ref_image, keypoints);
+	// 1. キーポイントの抽出
+	while(true)
+	{
+		cv::DenseFeatureDetector detector(floor(scale), 1, 0.1f, floor(interval), floor(sift), true, false);
+		detector.detect(proc_image, keypoints);
 
+		// 指定した特徴量になるまでフィードバックループ
+		if(keypoints.size() < feature_num)
+		{
+			sift--;
+			if(sift < 0)
+				cerr << "計算式がおかしい" << endl;
+		}
+		else if(keypoints.size() > feature_num)
+		{
+			sift++;
+			if(sift < 0)
+				cerr << "計算式がおかしい" << endl;
+		}
+		else
+			break;
+
+	}
 	// 2. SIFT記述子の抽出
-	extractor.compute(ref_image, keypoints, descriptors);
+	extractor.compute(proc_image, keypoints, descriptors);
 
 	//TODO: エラー処理
 
@@ -171,20 +233,40 @@ void SIFTExtractor::save_image(string file_name)
 		return;
 	}
 
+	// 特徴量を書き込むためのリファレンス画像のコピーを作成
+	cv::Mat tmp_image = ref_image.clone();
+	if(resize == true)	// リサイズして特徴量を求めた場合は，リファレンス画像もリサイズする
+		resize_image(tmp_image);
+
 	// 特徴点を画像に書き出す．
 	std::vector<cv::KeyPoint>::iterator itk;
 	int keypoint_index = 0;
 	for (itk = keypoints.begin(); itk != keypoints.end(); ++itk, keypoint_index++)
 	{
-		cv::circle(ref_image, itk->pt, itk->size, cv::Scalar(0, 255, 255), 1, CV_AA);
-		cv::circle(ref_image, itk->pt, 1, cv::Scalar(0, 255, 0), -1);
+		cv::circle(tmp_image, itk->pt, itk->size, cv::Scalar(0, 255, 255), 1, CV_AA);
+		cv::circle(tmp_image, itk->pt, 1, cv::Scalar(0, 255, 0), -1);
 	}
 
 	string save = file_name;
 	save.append("_sift.png");
 
 	// Write image file.
-	cv::imwrite(save, ref_image);
+	cv::imwrite(save, tmp_image);
+}
+
+void SIFTExtractor::resize_image(cv::Mat &image)
+{
+	cv::Mat tmp;
+
+	// 画像の最も長い辺（横or縦）に合わせて正方形の画像を作成
+	if(image.cols > image.rows)
+		tmp = cv::Mat::zeros(image.cols, image.cols, CV_8UC1);
+	else
+		tmp = cv::Mat::zeros(image.rows, image.rows, CV_8UC1);
+
+	// リサイズ
+	cv::resize(image, tmp, tmp.size(), 0, 0);
+	image = tmp.clone(); // リサイズ後のイメージをimageにコピー
 }
 
 #endif //_SIFTEXTRACTOR_HPP_
