@@ -41,6 +41,8 @@ private:
 	std::vector<cv::KeyPoint> keypoints; 	// キーポイント
 	cv::Mat descriptors;		 			// 抽出結果
 	cv::SiftDescriptorExtractor extractor;  // 抽出機
+	double scale_x;							// x方向のスケーリングパラメータ
+	double scale_y;							// y方向のスケーリングパラメータ
 
 	void extract_using_dog();    // DoGカーネルで特徴抽出
 	void extract_using_dense();  // Dense Samplingカーネルで特徴抽出
@@ -55,6 +57,7 @@ SIFTExtractor::SIFTExtractor(string name, bool resize, int feature_num)
 	extraction = false;	  	 // 特徴量の抽出完了フラグを未抽出(false)に初期化
 	this->resize = resize; 	 // リサイズの有無
 	this->feature_num = feature_num; // 特徴量の抽出数
+	scale_x = scale_y = 1.0; // スケーリングパラメータの初期化（初期値=等倍）
 
 	// (1) load Reference Image
 	ref_image = imread(image_file_name);
@@ -211,8 +214,9 @@ void SIFTExtractor::save_feature(string file_name)
 	for (itk = keypoints.begin(); itk != keypoints.end(); ++itk, keypoint_index++)
 	{
 		// (1) キーポイント情報の出力
-		fout << itk->pt.x << "\t";  // x座標
-		fout << itk->pt.y << "\t";  // y座標
+		// x座標，y座標はスケーリングパラメータに応じて変化させる
+		fout << (itk->pt.x) * scale_x << "\t";  // x座標
+		fout << (itk->pt.y) * scale_y << "\t";  // y座標
 		fout << itk->size << "\t";  // スケール
 		fout << itk->angle << "\t"; // 向き
 
@@ -260,9 +264,23 @@ void SIFTExtractor::resize_image(cv::Mat &image)
 
 	// 画像の最も長い辺（横or縦）に合わせて正方形の画像を作成
 	if(image.cols > image.rows)
+	{
+		// スケーリングパラメータの設定
+		scale_x = 1.0;
+		scale_y = image.cols / (double)image.rows;
+
+		// image.cols ×　image.cols　サイズの画像を作成
 		tmp = cv::Mat::zeros(image.cols, image.cols, CV_8UC1);
+	}
 	else
+	{
+		// スケーリングパラメータの設定
+		scale_x = image.rows / (double)image.cols;
+		scale_y = 1.0;
+
+		// image.rows ×　image.rows　サイズの画像を作成
 		tmp = cv::Mat::zeros(image.rows, image.rows, CV_8UC1);
+	}
 
 	// リサイズ
 	cv::resize(image, tmp, tmp.size(), 0, 0);
