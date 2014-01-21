@@ -215,8 +215,8 @@ void SIFTExtractor::save_feature(string file_name)
 	{
 		// (1) キーポイント情報の出力
 		// x座標，y座標はスケーリングパラメータに応じて変化させる
-		fout << (itk->pt.x) * scale_x << "\t";  // x座標
-		fout << (itk->pt.y) * scale_y << "\t";  // y座標
+		fout << (int)((itk->pt.x) / scale_x) << "\t";  // x座標
+		fout << (int)((itk->pt.y) / scale_y) << "\t";  // y座標
 		fout << itk->size << "\t";  // スケール
 		fout << itk->angle << "\t"; // 向き
 
