@@ -20,14 +20,26 @@ using namespace cv;
 int main(int argc, char *argv[])
 {
 	/* 引数のチェック */
-	if (argc != 5)
+	if (argc != 6)
 	{
-		cerr << "usage: SFITExtractor [image file] [feature file] [sampling: 0=DoG(Default), 1=DenceSampling] [scaling: 0=false(Default), 1=true]" << endl;
+		cerr << "usage: SFITExtractor [image file] [feature file] [feature_num] [sampling: 0=DoG, 1=DenceSampling] [scaling: 0=false, 1=true]" << endl;
 		return -1;
 	}
 
-	SIFTExtractor sift(argv[1], true);
-	sift.extract(SIFTExtractor::dense);
+	// スケーリング引数のチェック
+	if( (atoi(argv[5]) != 0) && (atoi(argv[5]) != 1))
+	{
+		cerr << "パラメータ指定が違います(scaling)" << endl;
+		return -1;
+	}
+
+	SIFTExtractor sift(argv[1], atoi(argv[5]), atoi(argv[3]));
+
+	if(atoi(argv[4]) == 0)
+		sift.extract(SIFTExtractor::dog);
+	else if(atoi(argv[4]) == 1)
+		sift.extract(SIFTExtractor::dense);
+
 	sift.save_feature(argv[2]);
 	sift.save_image("result");
 
