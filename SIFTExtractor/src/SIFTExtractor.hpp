@@ -118,23 +118,27 @@ void SIFTExtractor::extract_using_dense()
 
 	if( (image_size.width % sample_col_num == 0) && (image_size.height % sample_row_num == 0) )
 	{
-		odd_cols = image_size.width -  ( (image_size.width - 1)  * floor(interval) );
-		odd_rows = image_size.height - ( (image_size.height - 1) * floor(interval) );
+		//cout << "1"  << endl;
+		odd_cols = image_size.width -  ( (sample_col_num - 1)  * floor(interval) );
+		odd_rows = image_size.height - ( (sample_row_num - 1) * floor(interval) );
 	}
 	else if( (image_size.width % sample_col_num == 0) && (image_size.height % sample_row_num != 0) )
 	{
-		odd_cols = image_size.width -  ( (image_size.width - 1) * floor(interval) );
-		odd_rows = image_size.height - ( image_size.height * floor(interval) );
+		//cout << "2"  << endl;
+		odd_cols = image_size.width -  ( (sample_col_num - 1) * floor(interval) );
+		odd_rows = image_size.height - ( sample_row_num * floor(interval) );
 	}
 	else if( (image_size.width % sample_col_num == 0) && (image_size.height % sample_row_num == 0) )
 	{
-		odd_cols = image_size.width -  ( image_size.width * floor(interval) );
-		odd_rows = image_size.height - ( (image_size.height - 1) * floor(interval) );
+		//cout << "3"  << endl;
+		odd_cols = image_size.width -  ( sample_col_num * floor(interval) );
+		odd_rows = image_size.height - ( (sample_row_num - 1) * floor(interval) );
 	}
 	else
 	{
-		odd_cols = image_size.width -  ( image_size.width  * floor(interval) );
-		odd_rows = image_size.height - ( image_size.height * floor(interval) );
+		//cout << "4"  << endl;
+		odd_cols = image_size.width -  ( sample_col_num * floor(interval) );
+		odd_rows = image_size.height - ( sample_row_num * floor(interval) );
 	}
 
 	// 5. 左上から何pixelシフトした位置から特徴量を抽出するかを算出
@@ -149,6 +153,16 @@ void SIFTExtractor::extract_using_dense()
 		else
 			sift += tmp/2;
 	}
+	/*
+	cout << "Size (" << proc_image.cols << " * " << proc_image.rows << ")" << endl;
+	cout << "interval:" << interval << endl;
+	cout << "scale:" << scale << endl;
+	cout << "sample_col_num:" << sample_col_num << endl;
+	cout << "sample_row_num:" << sample_row_num << endl;
+	cout << "odd_cols:" << odd_cols << endl;
+	cout << "odd_rows:" << odd_rows << endl;
+	cout << "sift:" << sift << endl;
+	*/
 
 	/*+ パラメータの算出 ++++++++++++++++*/
 	// 1. キーポイントの抽出
@@ -174,6 +188,7 @@ void SIFTExtractor::extract_using_dense()
 			break;
 
 	}
+
 	// 2. SIFT記述子の抽出
 	extractor.compute(proc_image, keypoints, descriptors);
 
